@@ -1,14 +1,20 @@
 package com.hirecore.hirecore.dominio.estado;
 
+import com.hirecore.hirecore.dominio.CodigoEstado;
+import org.springframework.stereotype.Component;
+
+import java.util.Set;
+
+@Component
 public class EstadoRechazado extends EstadoBase {
 
     @Override
-    public String nombre() {
-        return NombreEstado.RECHAZADO.name();
+    public CodigoEstado codigo() {
+        return new CodigoEstado("RECHAZADO");
     }
 
     @Override
-    public boolean puedeTransicionar(EstadoCandidato nuevoEstado) {
-        return false;
+    public Set<CodigoEstado> destinosPermitidos() {
+        return Set.of();
     }
 }

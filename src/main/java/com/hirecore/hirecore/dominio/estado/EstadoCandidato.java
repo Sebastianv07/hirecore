@@ -1,19 +1,17 @@
 package com.hirecore.hirecore.dominio.estado;
 
 import com.hirecore.hirecore.dominio.Candidato;
-import com.hirecore.hirecore.dominio.excepcion.TransicionEstadoInvalidaException;
+import com.hirecore.hirecore.dominio.CodigoEstado;
+
+import java.util.Set;
 
 public interface EstadoCandidato {
 
-    String nombre();
+    CodigoEstado codigo();
 
-    boolean puedeTransicionar(EstadoCandidato nuevoEstado);
+    Set<CodigoEstado> destinosPermitidos();
 
-    default void avanzar(Candidato candidato) {
-        EstadoCandidato actual = candidato.obtenerEstado();
-        if (actual != null && !actual.puedeTransicionar(this)) {
-            throw new TransicionEstadoInvalidaException(actual.nombre(), nombre());
-        }
-        candidato.cambiarEstado(this);
-    }
+    EstadoCandidato transicionarA(EstadoCandidato destino);
+
+    void alEntrar(Candidato candidato, String autor);
 }

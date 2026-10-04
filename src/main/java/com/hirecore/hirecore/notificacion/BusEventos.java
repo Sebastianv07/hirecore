@@ -1,32 +1,48 @@
 package com.hirecore.hirecore.notificacion;
 
 import com.hirecore.hirecore.dominio.evento.EventoDominio;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 @Component
 public class BusEventos implements PublicarEventos {
 
-    private final List<AvisarObserver> observadores = new CopyOnWriteArrayList<>();
+    private static final Logger log = LoggerFactory.getLogger(BusEventos.class);
 
-    public BusEventos(List<AvisarObserver> observadores) {
-        if (observadores != null) {
-            this.observadores.addAll(observadores);
-        }
+    private final CopyOnWriteArrayList<ObservadorEvento> observadores = new CopyOnWriteArrayList<>();
+
+    public BusEventos(List<ObservadorEvento> observadores) {
+        observadores.forEach(this::suscribir);
     }
 
-    public void registrar(AvisarObserver observador) {
-        observadores.add(observador);
+    public void suscribir(ObservadorEvento observador) {
+        Objects.requireNonNull(observador, "observador");
+        observadores.addIfAbsent(observador);
     }
 
-    public void desregistrar(AvisarObserver observador) {
+    public void desuscribir(ObservadorEvento observador) {
         observadores.remove(observador);
     }
 
     @Override
-    public void publicar(EventoDominio evento) {
-        observadores.forEach(observador -> observador.manejarNotificacion(evento));
+    public void publicar(List<EventoDominio> eventos) {
+        for (EventoDominio evento : eventos) {
+            observadores.forEach(observador -> notificar(observador, evento));
+        }
+    }
+
+    private void notificar(ObservadorEvento observador, EventoDominio evento) {
+        try {
+            if (observador.leInteresa(evento)) {
+                observador.manejar(evento);
+            }
+        } catch (RuntimeException error) {
+            log.error("El observador {} falló con el evento {}", observador.getClass().getSimpleName(), evento, error);
+        }
     }
 }

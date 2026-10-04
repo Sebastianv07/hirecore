@@ -1,33 +1,42 @@
 package com.hirecore.hirecore.notificacion;
 
 import com.hirecore.hirecore.dominio.evento.CambioRevertido;
+import com.hirecore.hirecore.dominio.evento.CandidatoContratado;
 import com.hirecore.hirecore.dominio.evento.EstadoCambiado;
 import com.hirecore.hirecore.dominio.evento.EventoDominio;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.hirecore.hirecore.dominio.evento.OfertaEmitida;
+import com.hirecore.hirecore.notificacion.canal.CanalNotificacion;
 import org.springframework.stereotype.Component;
 
-@Component
-public class NotificarReclutador implements AvisarObserver {
+import java.util.Objects;
 
-    private static final Logger log = LoggerFactory.getLogger(NotificarReclutador.class);
+@Component
+public class NotificarReclutador implements ObservadorEvento {
+
+    private final CanalNotificacion canal;
+
+    public NotificarReclutador(CanalNotificacion canal) {
+        this.canal = Objects.requireNonNull(canal, "canal");
+    }
 
     @Override
-    public void manejarNotificacion(EventoDominio evento) {
-        switch (evento) {
-            case EstadoCambiado cambiado -> log.info(
-                    "[Reclutador] Candidato {} pasó de {} a {} (autor: {})",
-                    cambiado.candidatoId(),
-                    cambiado.estadoAnterior(),
-                    cambiado.nuevoEstado(),
-                    cambiado.autor()
-            );
-            case CambioRevertido revertido -> log.info(
-                    "[Reclutador] Se deshizo el cambio de {}. Estado restaurado: {}",
-                    revertido.candidatoId(),
-                    revertido.estadoRestaurado()
-            );
-            default -> log.info("[Reclutador] Evento recibido para {}", evento.candidatoId());
-        }
+    public boolean leInteresa(EventoDominio evento) {
+        return true;
+    }
+
+    @Override
+    public void manejar(EventoDominio evento) {
+        String mensaje = switch (evento) {
+            case EstadoCambiado cambiado -> "Candidato %s pasó de %s a %s (autor: %s)".formatted(
+                    cambiado.candidatoId(), cambiado.anterior(), cambiado.nuevo(), cambiado.autor());
+            case CambioRevertido revertido -> "Se deshizo el cambio de %s: volvió de %s a %s (autor: %s)".formatted(
+                    revertido.candidatoId(), revertido.estadoDeshecho(), revertido.estadoRestaurado(), revertido.autor());
+            case OfertaEmitida oferta -> "Oferta emitida al candidato %s (autor: %s)".formatted(
+                    oferta.candidatoId(), oferta.autor());
+            case CandidatoContratado contratado -> "Candidato %s contratado (autor: %s)".formatted(
+                    contratado.candidatoId(), contratado.autor());
+            default -> "Evento del candidato %s (autor: %s)".formatted(evento.candidatoId(), evento.autor());
+        };
+        canal.enviar("reclutamiento", mensaje);
     }
 }

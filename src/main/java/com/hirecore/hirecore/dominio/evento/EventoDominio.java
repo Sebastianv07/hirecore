@@ -6,5 +6,7 @@ public interface EventoDominio {
 
     String candidatoId();
 
+    String autor();
+
     Instant ocurridoEn();
 }

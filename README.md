@@ -1,8 +1,8 @@
 # Hirecore
 
-Aplicación Spring Boot que modela el cambio de estado de un candidato con los patrones **Command**, **State** y **Observer**, más **Dependency Inversion** para publicar eventos.
+Aplicación Spring Boot que modela el proceso de selección de un candidato con los patrones **Command**, **State**, **Template Method**, **Memento**, **Observer** y **Strategy**, más un registro de estados (**Registry**) y **eventos de dominio**.
 
-Al arrancar, corre una demostración en consola que recorre ese flujo de punta a punta.
+El diagrama de clases, organizado por patrones, está en `Diagrama_Clases_HireCore.excalidraw` (se abre con la extensión Excalidraw de VS Code o en excalidraw.com). Los supuestos frente a la información incompleta de RRHH están en `SUPUESTOS.md`.
 
 ## Integrantes
 
@@ -11,147 +11,67 @@ Al arrancar, corre una demostración en consola que recorre ese flujo de punta a
 - Sebastian Vargas Guarin
 - Fabian Andres Muñoz Camayo
 
-## Cómo ejecutar la demostración
+## Cómo ejecutar las pruebas
+
+Requiere Java 21.
 
 ```bash
-./mvnw spring-boot:run
+./mvnw test
 ```
 
-La clase `DemostracionArquitectura` se ejecuta sola al iniciar (es un `CommandLineRunner`). Queda activa por defecto; para apagarla:
+Las pruebas reemplazan a la antigua demostración por consola: recorren el mismo flujo, pero verifican el resultado en lugar de solo imprimirlo.
 
-```bash
-./mvnw spring-boot:run -Dhirecore.demo.enabled=false
-```
+## Cómo funciona un cambio de estado
 
-O en `src/main/resources/application.properties`:
+Nadie cambia el estado del candidato a mano. Cada movimiento es un `CambiarEstadoCommand` que se entrega a `GestorDeCandidato`, que siempre sigue los mismos pasos:
 
-```properties
-hirecore.demo.enabled=false
-```
+1. Toma una foto del candidato (`crearMemento`).
+2. Ejecuta el comando: el candidato llama a `transicionarA`, y el **estado actual** decide, mediante `EstadoBase`, si el destino está entre sus `destinosPermitidos()`.
+3. Si todo salió bien, guarda la foto en `HistorialCambios` (una pila por candidato).
+4. Publica los eventos que acumuló el candidato a través de `PublicarEventos`.
 
-## Qué hace el ejemplo
+Si la transición no está permitida se lanza `TransicionEstadoInvalida`: no se guarda la foto ni se avisa a nadie.
 
-Simula a Sofía, una reclutadora, moviendo al candidato `c-001` por el proceso de selección. **No cambia el objeto `Candidato` a mano.** Cada movimiento se convierte en un `CambiarEstadoCommand` y se le entrega al `EjecutorComandos`, que es el único punto del sistema que sabe correr comandos.
+Para deshacer, `GestorDeCandidato.deshacer(candidato, autor)` saca la última foto de ese candidato y el candidato se restaura. Queda un `CambioRevertido` con quién lo deshizo y cuándo.
 
-El ejecutor hace tres cosas, siempre en este orden:
+## Quién se entera de qué
 
-1. Ejecuta el comando (el estado actual decide si la transición es válida).
-2. Lo guarda en el historial, por si hay que deshacerlo.
-3. Publica un evento a través de `PublicarEventos` (una interfaz, no el bus concreto).
+`BusEventos` le pregunta a cada observador `leInteresa(evento)` y solo le entrega lo que le interesa. Si un observador falla, los demás igual reciben el evento.
 
-`BusEventos` implementa esa interfaz, mantiene la lista de interesados y les reparte el evento. Cada observador reacciona por su cuenta:
+| Observador | Le interesa | Eventos |
+|---|---|---|
+| `NotificarReclutador` | Todo | `EstadoCambiado`, `CambioRevertido`, `OfertaEmitida`, `CandidatoContratado` |
+| `ActualizarPortalCandidato` | `EventoDeProgreso` | `EstadoCambiado`, `CambioRevertido` |
+| `NotificarGerente` | `HitoDeDecision` | `OfertaEmitida`, `CandidatoContratado` |
+| `NotificarNomina` | `CandidatoContratado` | `CandidatoContratado` |
 
-| Observador | Cuándo reacciona |
-|---|---|
-| `NotificarReclutador` | En todo cambio o deshacer |
-| `ActualizarPortalCandidato` | En todo cambio o deshacer |
-| `NotificarGerente` | Solo si el nuevo estado es `OFERTA` o `CONTRATADO` |
-| `NotificacionNomina` | Solo si el nuevo estado es `CONTRATADO` |
+`OfertaEmitida` y `CandidatoContratado` los emiten los propios estados al entrar (`EstadoOferta.alEntrar`, `EstadoContratado.alEntrar`). Los observadores avisan a través de `CanalNotificacion`; hoy la implementación es `CanalRegistro`, que escribe en el log.
 
-## Recorrido paso a paso
-
-El candidato empieza en **APLICADO**. El autor de todos los cambios es `reclutador-sofia`.
-
-### 1. Aplicado → Entrevista (cambio válido)
-
-Se crea el comando y el ejecutor lo corre. `EstadoAplicado` sí permite pasar a entrevista.
-
-En el log aparecen el reclutador y el portal. El gerente y nómina no dicen nada: ese cambio no les importa.
-
-```
-Candidato inicial: Candidato{id='c-001', estado=APLICADO}
-[Portal] Publicar estado ENTREVISTA para el candidato c-001
-[Reclutador] Candidato c-001 pasó de APLICADO a ENTREVISTA (autor: reclutador-sofia)
-Estado actual: Candidato{id='c-001', estado=ENTREVISTA}
-```
-
-### 2. Entrevista → Contratado (salto inválido)
-
-El ejemplo intenta saltarse el proceso. La validación **no** la hace el comando ni el candidato: la hace `EstadoEntrevista`, que no permite ir directo a contratado.
-
-El comando falla, no se guarda en el historial y no se publica evento. El candidato se queda en entrevista.
-
-```
-Transición rechazada por el estado: No se puede transicionar de 'ENTREVISTA' a 'CONTRATADO'
-```
-
-### 3. Entrevista → Prueba técnica
-
-Cambio válido. Otra vez solo avisan reclutador y portal.
-
-```
-[Portal] Publicar estado PRUEBA_TECNICA para el candidato c-001
-[Reclutador] Candidato c-001 pasó de ENTREVISTA a PRUEBA_TECNICA (autor: reclutador-sofia)
-```
-
-### 4. Prueba técnica → Oferta
-
-Aquí entra el gerente: una oferta es un hito que debe revisar. Nómina sigue en silencio.
-
-```
-[Portal] Publicar estado OFERTA para el candidato c-001
-[Gerente] Candidato c-001 está en OFERTA y requiere revisión
-[Reclutador] Candidato c-001 pasó de PRUEBA_TECNICA a OFERTA (autor: reclutador-sofia)
-```
-
-### 5. Oferta → Contratado
-
-Nómina se suma para iniciar contrato y pagos. El gerente también se entera.
-
-```
-[Portal] Publicar estado CONTRATADO para el candidato c-001
-[Nómina] Alta de c-001 para iniciar contrato y pagos
-[Gerente] Candidato c-001 está en CONTRATADO y requiere revisión
-[Reclutador] Candidato c-001 pasó de OFERTA a CONTRATADO (autor: reclutador-sofia)
-```
-
-### 6. Deshacer el último cambio
-
-El ejecutor saca el último comando del historial, lo deshace y publica un `CambioRevertido`. El candidato vuelve a **OFERTA** sin volver a validar la transición (deshacer no es un movimiento de negocio).
-
-Reclutador y portal actualizan. Gerente y nómina no reaccionan al evento de reversión.
-
-```
-Deshaciendo el último cambio...
-[Portal] Restaurar estado OFERTA para el candidato c-001
-[Reclutador] Se deshizo el cambio de c-001. Estado restaurado: OFERTA
-Estado tras deshacer: Candidato{id='c-001', estado=OFERTA}
-```
-
-## Qué se está demostrando
-
-- **Command:** cada cambio es un objeto (`CambiarEstadoCommand`) con candidato, estado nuevo, estado anterior y autor. Por eso se puede guardar, auditar y deshacer.
-- **State:** las reglas “de qué estado se puede pasar a cuál” viven en cada estado. Agregar un estado nuevo no obliga a tocar un `if/else` central.
-- **Observer:** reclutamiento, gerencia, nómina y el portal se enteran sin que el ejecutor sepa quiénes son.
-- **Evento de dominio:** `EstadoCambiado` y `CambioRevertido` son el puente. El comando los produce; el bus los consume.
-- **Dependency Inversion:** el ejecutor solo conoce `PublicarEventos`. Si mañana el bus en memoria se cambia por un sistema de mensajería, `EjecutorComandos` no se entera.
-
-## Transiciones que usa el ejemplo
+## Transiciones
 
 ```
 APLICADO        → ENTREVISTA | RECHAZADO
 ENTREVISTA      → PRUEBA_TECNICA | REFERENCIA | OFERTA | RECHAZADO
 PRUEBA_TECNICA  → REFERENCIA | OFERTA | RECHAZADO
-REFERENCIA      → OFERTA | RECHAZADO
+REFERENCIA      → PRUEBA_TECNICA | OFERTA | RECHAZADO
 OFERTA          → CONTRATADO | RECHAZADO
-CONTRATADO      → (terminal)
-RECHAZADO       → (terminal)
+CONTRATADO      → (final)
+RECHAZADO       → (final)
 ```
 
-El salto que la demo intenta a propósito (`ENTREVISTA` → `CONTRATADO`) no está permitido.
+## Qué verifican las pruebas
 
-## Código del ejemplo
+| Prueba | Qué demuestra |
+|---|---|
+| `ContratoEstadosTest` | Contrato de todos los estados registrados: códigos únicos, destinos existentes, todo estado alcanzable desde `APLICADO`, sin callejones sin salida, y toda transición no permitida lanza `TransicionEstadoInvalida` (Liskov). Revisa automáticamente cualquier estado nuevo. |
+| `CandidatoTest` | Transiciones, eventos que emiten los estados, restauración desde una foto y protección contra fotos de otro candidato. |
+| `GestorDeCandidatoTest` | Deshacer un rechazo por error, historial por candidato, deshacer varios pasos y que un salto inválido no guarde ni publique nada. |
+| `BusEventosTest` | Entrega por interés, aislamiento de fallas, suscribir y desuscribir. |
+| `ObservadoresTest` | A qué eventos atiende cada interesado y por qué canal avisa. |
+| `HirecoreIntegracionTest` | Recorrido completo con Spring: cada interesado recibe solo lo que le corresponde. |
 
-La demostración está en `src/main/java/com/hirecore/hirecore/demostracion/DemostracionArquitectura.java`.
-El equivalente de lo que corre al arrancar es:
+## Cómo extender
 
-```java
-Candidato candidato = new Candidato("c-001", factory.crear("APLICADO"));
-
-ejecutor.ejecutar(new CambiarEstadoCommand(candidato, "ENTREVISTA", "reclutador-sofia", factory));
-ejecutor.ejecutar(new CambiarEstadoCommand(candidato, "CONTRATADO", "reclutador-sofia", factory)); // falla
-ejecutor.ejecutar(new CambiarEstadoCommand(candidato, "PRUEBA_TECNICA", "reclutador-sofia", factory));
-ejecutor.ejecutar(new CambiarEstadoCommand(candidato, "OFERTA", "reclutador-sofia", factory));
-ejecutor.ejecutar(new CambiarEstadoCommand(candidato, "CONTRATADO", "reclutador-sofia", factory));
-ejecutor.deshacer();
-```
+- **Nueva etapa:** una clase que hereda de `EstadoBase` con `@Component`, y agregar su código en los `destinosPermitidos()` del estado desde el que se llega a ella. `CatalogoEstados` la registra solo. Si no se conecta, `ContratoEstadosTest` falla avisando que no es alcanzable.
+- **Nuevo interesado:** una clase que implementa `ObservadorEvento` con `@Component`. `BusEventos` la recibe sola.
+- **Nuevo canal:** una clase que implementa `CanalNotificacion`.

@@ -1,14 +1,20 @@
 package com.hirecore.hirecore.dominio.estado;
 
+import com.hirecore.hirecore.dominio.CodigoEstado;
+import org.springframework.stereotype.Component;
+
+import java.util.Set;
+
+@Component
 public class EstadoReferencia extends EstadoBase {
 
     @Override
-    public String nombre() {
-        return NombreEstado.REFERENCIA.name();
+    public CodigoEstado codigo() {
+        return new CodigoEstado("REFERENCIA");
     }
 
     @Override
-    public boolean puedeTransicionar(EstadoCandidato nuevoEstado) {
-        return permite(nuevoEstado, NombreEstado.OFERTA, NombreEstado.RECHAZADO);
+    public Set<CodigoEstado> destinosPermitidos() {
+        return Set.of(new CodigoEstado("PRUEBA_TECNICA"), new CodigoEstado("OFERTA"), new CodigoEstado("RECHAZADO"));
     }
 }

@@ -1,10 +1,10 @@
 package com.hirecore.hirecore.comando;
 
-import com.hirecore.hirecore.dominio.evento.EventoDominio;
+import com.hirecore.hirecore.dominio.Candidato;
 
 public interface ComandoCandidato {
 
-    EventoDominio ejecutar();
+    Candidato candidato();
 
-    EventoDominio deshacer();
+    void ejecutar();
 }

@@ -1,6 +1,6 @@
 package com.hirecore.hirecore.notificacion;
 
-import com.hirecore.hirecore.dominio.evento.EventoDeProgreso;
+import com.hirecore.hirecore.dominio.evento.CandidatoContratado;
 import com.hirecore.hirecore.dominio.evento.EventoDominio;
 import com.hirecore.hirecore.notificacion.canal.CanalNotificacion;
 import org.springframework.stereotype.Component;
@@ -8,25 +8,21 @@ import org.springframework.stereotype.Component;
 import java.util.Objects;
 
 @Component
-public class ActualizarPortalCandidato implements ObservadorEvento {
+public class NotificarNomina implements ObservadorEvento {
 
     private final CanalNotificacion canal;
 
-    public ActualizarPortalCandidato(CanalNotificacion canal) {
+    public NotificarNomina(CanalNotificacion canal) {
         this.canal = Objects.requireNonNull(canal, "canal");
     }
 
     @Override
     public boolean leInteresa(EventoDominio evento) {
-        return evento instanceof EventoDeProgreso;
+        return evento instanceof CandidatoContratado;
     }
 
     @Override
     public void manejar(EventoDominio evento) {
-        EventoDeProgreso progreso = (EventoDeProgreso) evento;
-        canal.enviar(
-                "portal:" + progreso.candidatoId(),
-                "Tu proceso de selección está en la etapa %s".formatted(progreso.estadoVisible())
-        );
+        canal.enviar("nomina", "Dar de alta al candidato %s para iniciar contrato y pagos".formatted(evento.candidatoId()));
     }
 }
