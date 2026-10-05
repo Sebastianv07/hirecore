@@ -5,6 +5,7 @@ import com.hirecore.hirecore.dominio.estado.CatalogoEstados;
 import com.hirecore.hirecore.dominio.evento.CambioRevertido;
 import com.hirecore.hirecore.dominio.evento.EstadoCambiado;
 import com.hirecore.hirecore.dominio.evento.EventoDominio;
+import com.hirecore.hirecore.dominio.excepcion.DeshacerNoPermitido;
 import com.hirecore.hirecore.dominio.excepcion.HistorialVacio;
 import com.hirecore.hirecore.dominio.excepcion.TransicionEstadoInvalida;
 import com.hirecore.hirecore.historial.HistorialEnMemoria;
@@ -92,13 +93,29 @@ class GestorDeCandidatoTest {
     }
 
     @Test
-    void sePuedeDeshacerVariosPasosHaciaAtras() {
+    void soloSePuedeDeshacerElUltimoCambio() {
         Candidato candidato = nuevoCandidato("c-001");
         cambiar(candidato, "ENTREVISTA");
         cambiar(candidato, "PRUEBA_TECNICA");
         cambiar(candidato, "OFERTA");
 
         gestor.deshacer(candidato, "sofia");
+
+        assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("PRUEBA_TECNICA"));
+        assertThatThrownBy(() -> gestor.deshacer(candidato, "sofia"))
+                .isInstanceOf(DeshacerNoPermitido.class);
+        assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("PRUEBA_TECNICA"));
+        assertThat(historial.tamanio("c-001")).isEqualTo(2);
+    }
+
+    @Test
+    void unCambioNuevoVuelveAHabilitarElDeshacer() {
+        Candidato candidato = nuevoCandidato("c-001");
+        cambiar(candidato, "ENTREVISTA");
+        cambiar(candidato, "PRUEBA_TECNICA");
+        gestor.deshacer(candidato, "sofia");
+
+        cambiar(candidato, "OFERTA");
         gestor.deshacer(candidato, "sofia");
 
         assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("ENTREVISTA"));

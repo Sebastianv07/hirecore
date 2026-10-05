@@ -24,19 +24,18 @@ public class GestorDeCandidato {
     public List<EventoDominio> ejecutar(ComandoCandidato comando) {
         Candidato candidato = comando.candidato();
         MementoCandidato foto = candidato.crearMemento();
-        comando.ejecutar();
+        List<EventoDominio> eventos = comando.ejecutar();
         historial.guardar(foto);
-        return publicarPendientes(candidato);
+        return publicar(eventos);
     }
 
     public List<EventoDominio> deshacer(Candidato candidato, String autor) {
         MementoCandidato foto = historial.extraerUltimo(candidato.obtenerId());
-        candidato.restaurar(foto, autor);
-        return publicarPendientes(candidato);
+        List<EventoDominio> eventos = candidato.restaurar(foto, autor);
+        return publicar(eventos);
     }
 
-    private List<EventoDominio> publicarPendientes(Candidato candidato) {
-        List<EventoDominio> eventos = candidato.extraerEventos();
+    private List<EventoDominio> publicar(List<EventoDominio> eventos) {
         publicador.publicar(eventos);
         return eventos;
     }
