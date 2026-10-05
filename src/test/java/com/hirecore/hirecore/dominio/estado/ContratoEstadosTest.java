@@ -27,6 +27,9 @@ class ContratoEstadosTest {
     @Autowired
     private CatalogoEstados catalogo;
 
+    @Autowired
+    private ReglasTransicion reglas;
+
     @Test
     void cadaEstadoTieneUnCodigoUnico() {
         List<CodigoEstado> codigos = estados.stream().map(EstadoCandidato::codigo).toList();
@@ -34,11 +37,23 @@ class ContratoEstadosTest {
     }
 
     @Test
-    void todoDestinoDeclaradoExisteEnElCatalogo() {
+    void cadaEstadoDelCatalogoTieneUnaFilaEnLaTabla() {
         for (EstadoCandidato estado : estados) {
-            for (CodigoEstado destino : estado.destinosPermitidos()) {
+            assertThat(reglas.origenesDeclarados())
+                    .as("%s no está declarado en la tabla de transiciones", estado.codigo())
+                    .contains(estado.codigo());
+        }
+    }
+
+    @Test
+    void todoCodigoDeLaTablaExisteEnElCatalogo() {
+        for (CodigoEstado origen : reglas.origenesDeclarados()) {
+            assertThatNoException()
+                    .as("la tabla declara el origen %s", origen)
+                    .isThrownBy(() -> catalogo.obtener(origen));
+            for (CodigoEstado destino : reglas.destinosDe(origen)) {
                 assertThatNoException()
-                        .as("%s declara el destino %s", estado.codigo(), destino)
+                        .as("%s declara el destino %s", origen, destino)
                         .isThrownBy(() -> catalogo.obtener(destino));
             }
         }
@@ -56,7 +71,7 @@ class ContratoEstadosTest {
     void desdeTodoEstadoSeLlegaAUnEstadoFinal() {
         for (EstadoCandidato estado : estados) {
             boolean llegaAFinal = alcanzablesDesde(estado.codigo()).stream()
-                    .anyMatch(codigo -> catalogo.obtener(codigo).destinosPermitidos().isEmpty());
+                    .anyMatch(codigo -> reglas.destinosDe(codigo).isEmpty());
             assertThat(llegaAFinal).as("%s es un callejón sin salida", estado.codigo()).isTrue();
         }
     }
@@ -64,7 +79,7 @@ class ContratoEstadosTest {
     @Test
     void unaTransicionPermitidaDevuelveElDestino() {
         for (EstadoCandidato estado : estados) {
-            for (CodigoEstado codigoDestino : estado.destinosPermitidos()) {
+            for (CodigoEstado codigoDestino : reglas.destinosDe(estado.codigo())) {
                 EstadoCandidato destino = catalogo.obtener(codigoDestino);
                 assertThat(estado.transicionarA(destino)).isSameAs(destino);
             }
@@ -75,7 +90,7 @@ class ContratoEstadosTest {
     void unaTransicionNoPermitidaSiempreLanzaTransicionEstadoInvalida() {
         for (EstadoCandidato estado : estados) {
             for (EstadoCandidato destino : estados) {
-                if (!estado.destinosPermitidos().contains(destino.codigo())) {
+                if (!reglas.permite(estado.codigo(), destino.codigo())) {
                     assertThatThrownBy(() -> estado.transicionarA(destino))
                             .isInstanceOf(TransicionEstadoInvalida.class);
                 }
@@ -89,7 +104,7 @@ class ContratoEstadosTest {
         while (!pendientes.isEmpty()) {
             CodigoEstado actual = pendientes.pop();
             if (visitados.add(actual)) {
-                pendientes.addAll(catalogo.obtener(actual).destinosPermitidos());
+                pendientes.addAll(reglas.destinosDe(actual));
             }
         }
         return visitados;

@@ -40,7 +40,7 @@ CONTRATADO / RECHAZADO → (terminales)
 
 Se asume además que se puede ir de entrevista a oferta (omitir prueba o referencias), y que prueba técnica y referencias se pueden hacer en cualquier orden, porque RRHH no prohibió atajos ni fijó un orden entre etapas operativas; lo que sí queda prohibido es saltar a un cierre (`CONTRATADO`) sin pasar por `OFERTA`. El proceso es un grafo, no una línea.
 
-**Qué resuelve la arquitectura.** State + Template Method + Registry: cada estado declara sus `destinosPermitidos()`; `EstadoBase` fija la validación para que ningún estado se la salte; `CatalogoEstados` registra automáticamente todos los estados. `GestorDeCandidato` y el comando no nombran etapas. Una etapa nueva es una clase nueva más una línea en el estado desde el que se llega a ella; no se reabre un `if/else` central como el del `GestorDeCandidato` original. Las pruebas de contrato detectan si la etapa nueva quedó sin conectar.
+**Qué resuelve la arquitectura.** State en su variante de máquina de estados dirigida por tabla, más Template Method y Registry: el grafo vive completo en `ReglasTransicion`; `EstadoBase` fija la validación contra esa tabla para que ningún estado se la salte; `CatalogoEstados` registra automáticamente todos los estados; cada clase de estado solo conserva lo que de verdad cambia según la etapa (su código y, en oferta y contratado, lo que ocurre al entrar). `GestorDeCandidato` y el comando no nombran etapas. Una etapa nueva es una clase nueva más sus filas en la tabla, sin modificar los estados vecinos ni reabrir un `if/else` central como el del `GestorDeCandidato` original. Las pruebas de contrato detectan si la etapa nueva quedó sin conectar.
 
 ## 4. Qué ve el candidato en el portal
 

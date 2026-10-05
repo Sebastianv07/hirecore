@@ -5,19 +5,16 @@ import com.hirecore.hirecore.dominio.CodigoEstado;
 import com.hirecore.hirecore.dominio.evento.OfertaEmitida;
 import org.springframework.stereotype.Component;
 
-import java.util.Set;
-
 @Component
 public class EstadoOferta extends EstadoBase {
+
+    public EstadoOferta(ReglasTransicion reglas) {
+        super(reglas);
+    }
 
     @Override
     public CodigoEstado codigo() {
         return new CodigoEstado("OFERTA");
-    }
-
-    @Override
-    public Set<CodigoEstado> destinosPermitidos() {
-        return Set.of(new CodigoEstado("CONTRATADO"), new CodigoEstado("RECHAZADO"));
     }
 
     @Override

@@ -7,10 +7,16 @@ import java.util.Objects;
 
 public abstract class EstadoBase implements EstadoCandidato {
 
+    private final ReglasTransicion reglas;
+
+    protected EstadoBase(ReglasTransicion reglas) {
+        this.reglas = Objects.requireNonNull(reglas, "reglas");
+    }
+
     @Override
     public final EstadoCandidato transicionarA(EstadoCandidato destino) {
         Objects.requireNonNull(destino, "destino");
-        if (!destinosPermitidos().contains(destino.codigo())) {
+        if (!reglas.permite(codigo(), destino.codigo())) {
             throw new TransicionEstadoInvalida(codigo(), destino.codigo());
         }
         return destino;

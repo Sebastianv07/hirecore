@@ -1,6 +1,6 @@
 # Hirecore
 
-Aplicación Spring Boot que modela el proceso de selección de un candidato con los patrones **Command**, **State**, **Template Method**, **Memento**, **Observer** y **Strategy**, más un registro de estados (**Registry**) y **eventos de dominio**.
+Aplicación Spring Boot que modela el proceso de selección de un candidato con los patrones **Command**, **State** (en su variante de **máquina de estados dirigida por tabla**), **Template Method**, **Memento**, **Observer** y **Strategy**, más un registro de estados (**Registry**) y **eventos de dominio**.
 
 El diagrama de clases, organizado por patrones, está en `Diagrama_Clases_HireCore.excalidraw` (se abre con la extensión Excalidraw de VS Code o en excalidraw.com). Los supuestos frente a la información incompleta de RRHH están en `SUPUESTOS.md`.
 
@@ -26,7 +26,7 @@ Las pruebas reemplazan a la antigua demostración por consola: recorren el mismo
 Nadie cambia el estado del candidato a mano. Cada movimiento es un `CambiarEstadoCommand` que se entrega a `GestorDeCandidato`, que siempre sigue los mismos pasos:
 
 1. Toma una foto del candidato (`crearMemento`).
-2. Ejecuta el comando: el candidato llama a `transicionarA`, y el **estado actual** decide, mediante `EstadoBase`, si el destino está entre sus `destinosPermitidos()`.
+2. Ejecuta el comando: el candidato llama a `transicionarA`, y `EstadoBase` consulta en `ReglasTransicion` si el destino está entre los permitidos para el estado actual.
 3. Si todo salió bien, guarda la foto en `HistorialCambios` (una pila por candidato).
 4. Publica los eventos que acumuló el candidato a través de `PublicarEventos`.
 
@@ -49,6 +49,8 @@ Para deshacer, `GestorDeCandidato.deshacer(candidato, autor)` saca la última fo
 
 ## Transiciones
 
+Son la tabla de `ReglasTransicion`, el único lugar donde está el grafo. Las clases de estado no la conocen.
+
 ```
 APLICADO        → ENTREVISTA | RECHAZADO
 ENTREVISTA      → PRUEBA_TECNICA | REFERENCIA | OFERTA | RECHAZADO
@@ -63,7 +65,7 @@ RECHAZADO       → (final)
 
 | Prueba | Qué demuestra |
 |---|---|
-| `ContratoEstadosTest` | Contrato de todos los estados registrados: códigos únicos, destinos existentes, todo estado alcanzable desde `APLICADO`, sin callejones sin salida, y toda transición no permitida lanza `TransicionEstadoInvalida` (Liskov). Revisa automáticamente cualquier estado nuevo. |
+| `ContratoEstadosTest` | Contrato de todos los estados registrados: códigos únicos, cada estado declarado en la tabla y cada código de la tabla registrado, todo estado alcanzable desde `APLICADO`, sin callejones sin salida, y toda transición no permitida lanza `TransicionEstadoInvalida` (Liskov). Revisa automáticamente cualquier estado nuevo. |
 | `CandidatoTest` | Transiciones, eventos que emiten los estados, restauración desde una foto y protección contra fotos de otro candidato. |
 | `GestorDeCandidatoTest` | Deshacer un rechazo por error, historial por candidato, deshacer varios pasos y que un salto inválido no guarde ni publique nada. |
 | `BusEventosTest` | Entrega por interés, aislamiento de fallas, suscribir y desuscribir. |
@@ -72,6 +74,6 @@ RECHAZADO       → (final)
 
 ## Cómo extender
 
-- **Nueva etapa:** una clase que hereda de `EstadoBase` con `@Component`, y agregar su código en los `destinosPermitidos()` del estado desde el que se llega a ella. `CatalogoEstados` la registra solo. Si no se conecta, `ContratoEstadosTest` falla avisando que no es alcanzable.
+- **Nueva etapa:** una clase que hereda de `EstadoBase` con `@Component`, y dos filas en la tabla de `ReglasTransicion`: la del estado nuevo y la del estado desde el que se llega a él. `CatalogoEstados` la registra sola y ninguna clase de estado existente se modifica. Si no se conecta, `ContratoEstadosTest` falla avisando que no es alcanzable.
 - **Nuevo interesado:** una clase que implementa `ObservadorEvento` con `@Component`. `BusEventos` la recibe sola.
 - **Nuevo canal:** una clase que implementa `CanalNotificacion`.
