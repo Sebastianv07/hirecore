@@ -1,8 +1,10 @@
 package com.hirecore.hirecore.dominio.estado;
 
 import com.hirecore.hirecore.dominio.Candidato;
+import com.hirecore.hirecore.dominio.evento.EventoDominio;
 import com.hirecore.hirecore.dominio.excepcion.TransicionEstadoInvalida;
 
+import java.util.List;
 import java.util.Objects;
 
 public abstract class EstadoBase implements EstadoCandidato {
@@ -23,6 +25,7 @@ public abstract class EstadoBase implements EstadoCandidato {
     }
 
     @Override
-    public void alEntrar(Candidato candidato, String autor) {
+    public List<EventoDominio> alEntrar(Candidato candidato, String autor) {
+        return List.of();
     }
 }

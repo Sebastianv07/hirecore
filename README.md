@@ -28,11 +28,11 @@ Nadie cambia el estado del candidato a mano. Cada movimiento es un `CambiarEstad
 1. Toma una foto del candidato (`crearMemento`).
 2. Ejecuta el comando: el candidato llama a `transicionarA`, y `EstadoBase` consulta en `ReglasTransicion` si el destino está entre los permitidos para el estado actual.
 3. Si todo salió bien, guarda la foto en `HistorialCambios` (una pila por candidato).
-4. Publica los eventos que acumuló el candidato a través de `PublicarEventos`.
+4. Publica, a través de `PublicarEventos`, los eventos que devolvió la transición: `EstadoCambiado` y, si el estado nuevo lo emite al entrar, su evento propio.
 
 Si la transición no está permitida se lanza `TransicionEstadoInvalida`: no se guarda la foto ni se avisa a nadie.
 
-Para deshacer, `GestorDeCandidato.deshacer(candidato, autor)` saca la última foto de ese candidato y el candidato se restaura. Queda un `CambioRevertido` con quién lo deshizo y cuándo.
+Para deshacer, `GestorDeCandidato.deshacer(candidato, autor)` saca la última foto de ese candidato y el candidato se restaura completo (nombre y estado). Queda un `CambioRevertido` con quién lo deshizo y cuándo. Solo se puede deshacer el último cambio: un segundo deshacer seguido lanza `DeshacerNoPermitido` hasta que haya un cambio nuevo.
 
 ## Quién se entera de qué
 
@@ -66,8 +66,8 @@ RECHAZADO       → (final)
 | Prueba | Qué demuestra |
 |---|---|
 | `ContratoEstadosTest` | Contrato de todos los estados registrados: códigos únicos, cada estado declarado en la tabla y cada código de la tabla registrado, todo estado alcanzable desde `APLICADO`, sin callejones sin salida, y toda transición no permitida lanza `TransicionEstadoInvalida` (Liskov). Revisa automáticamente cualquier estado nuevo. |
-| `CandidatoTest` | Transiciones, eventos que emiten los estados, restauración desde una foto y protección contra fotos de otro candidato. |
-| `GestorDeCandidatoTest` | Deshacer un rechazo por error, historial por candidato, deshacer varios pasos y que un salto inválido no guarde ni publique nada. |
+| `CandidatoTest` | Transiciones, eventos que devuelve cada transición sin acumularlos, eventos que emiten los estados, foto del candidato completo, restauración y protección contra fotos de otro candidato. |
+| `GestorDeCandidatoTest` | Deshacer un rechazo por error, historial por candidato, que solo se pueda deshacer el último cambio (y que un cambio nuevo lo vuelva a habilitar), y que un salto inválido no guarde ni publique nada. |
 | `BusEventosTest` | Entrega por interés, aislamiento de fallas, suscribir y desuscribir. |
 | `ObservadoresTest` | A qué eventos atiende cada interesado y por qué canal avisa. |
 | `HirecoreIntegracionTest` | Recorrido completo con Spring: cada interesado recibe solo lo que le corresponde. |

@@ -2,6 +2,9 @@ package com.hirecore.hirecore.dominio.estado;
 
 import com.hirecore.hirecore.dominio.Candidato;
 import com.hirecore.hirecore.dominio.CodigoEstado;
+import com.hirecore.hirecore.dominio.evento.EventoDominio;
+
+import java.util.List;
 
 public interface EstadoCandidato {
 
@@ -9,5 +12,5 @@ public interface EstadoCandidato {
 
     EstadoCandidato transicionarA(EstadoCandidato destino);
 
-    void alEntrar(Candidato candidato, String autor);
+    List<EventoDominio> alEntrar(Candidato candidato, String autor);
 }

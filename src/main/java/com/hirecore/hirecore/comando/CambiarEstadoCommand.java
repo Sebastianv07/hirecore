@@ -3,7 +3,9 @@ package com.hirecore.hirecore.comando;
 import com.hirecore.hirecore.dominio.Candidato;
 import com.hirecore.hirecore.dominio.CodigoEstado;
 import com.hirecore.hirecore.dominio.estado.CatalogoEstados;
+import com.hirecore.hirecore.dominio.evento.EventoDominio;
 
+import java.util.List;
 import java.util.Objects;
 
 public class CambiarEstadoCommand implements ComandoCandidato {
@@ -26,7 +28,7 @@ public class CambiarEstadoCommand implements ComandoCandidato {
     }
 
     @Override
-    public void ejecutar() {
-        candidato.transicionarA(catalogo.obtener(destino), autor);
+    public List<EventoDominio> ejecutar() {
+        return candidato.transicionarA(catalogo.obtener(destino), autor);
     }
 }

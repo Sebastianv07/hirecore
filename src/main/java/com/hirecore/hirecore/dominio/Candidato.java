@@ -12,9 +12,8 @@ import java.util.Objects;
 public class Candidato {
 
     private final String id;
-    private final String nombre;
+    private String nombre;
     private EstadoCandidato estado;
-    private final List<EventoDominio> eventos = new ArrayList<>();
 
     public Candidato(String id, String nombre, EstadoCandidato estadoInicial) {
         this.id = Objects.requireNonNull(id, "id");
@@ -34,20 +33,22 @@ public class Candidato {
         return estado;
     }
 
-    public void transicionarA(EstadoCandidato destino, String autor) {
+    public List<EventoDominio> transicionarA(EstadoCandidato destino, String autor) {
         Objects.requireNonNull(destino, "destino");
         Objects.requireNonNull(autor, "autor");
         EstadoCandidato anterior = estado;
         estado = anterior.transicionarA(destino);
-        registrarEvento(new EstadoCambiado(id, anterior.codigo(), estado.codigo(), autor));
-        estado.alEntrar(this, autor);
+        List<EventoDominio> eventos = new ArrayList<>();
+        eventos.add(new EstadoCambiado(id, anterior.codigo(), estado.codigo(), autor));
+        eventos.addAll(estado.alEntrar(this, autor));
+        return List.copyOf(eventos);
     }
 
     public MementoCandidato crearMemento() {
-        return new MementoCandidato(id, estado);
+        return new MementoCandidato(id, nombre, estado);
     }
 
-    public void restaurar(MementoCandidato memento, String autor) {
+    public List<EventoDominio> restaurar(MementoCandidato memento, String autor) {
         Objects.requireNonNull(memento, "memento");
         Objects.requireNonNull(autor, "autor");
         if (!id.equals(memento.obtenerCandidatoId())) {
@@ -56,18 +57,9 @@ public class Candidato {
             );
         }
         EstadoCandidato deshecho = estado;
+        nombre = memento.obtenerNombre();
         estado = memento.obtenerEstado();
-        registrarEvento(new CambioRevertido(id, deshecho.codigo(), estado.codigo(), autor));
-    }
-
-    public void registrarEvento(EventoDominio evento) {
-        eventos.add(Objects.requireNonNull(evento, "evento"));
-    }
-
-    public List<EventoDominio> extraerEventos() {
-        List<EventoDominio> pendientes = List.copyOf(eventos);
-        eventos.clear();
-        return pendientes;
+        return List.of(new CambioRevertido(id, deshecho.codigo(), estado.codigo(), autor));
     }
 
     @Override

@@ -24,18 +24,18 @@ class CandidatoTest {
         return new Candidato("c-001", "Ana", catalogo.obtener(codigo(estado)));
     }
 
-    private void transicionar(Candidato candidato, String destino) {
-        candidato.transicionarA(catalogo.obtener(codigo(destino)), "sofia");
+    private List<EventoDominio> transicionar(Candidato candidato, String destino) {
+        return candidato.transicionarA(catalogo.obtener(codigo(destino)), "sofia");
     }
 
     @Test
-    void unaTransicionValidaCambiaElEstadoYRegistraEstadoCambiado() {
+    void unaTransicionValidaCambiaElEstadoYDevuelveEstadoCambiado() {
         Candidato candidato = candidatoEn("APLICADO");
 
-        transicionar(candidato, "ENTREVISTA");
+        List<EventoDominio> eventos = transicionar(candidato, "ENTREVISTA");
 
         assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("ENTREVISTA"));
-        EstadoCambiado evento = (EstadoCambiado) candidato.extraerEventos().getFirst();
+        EstadoCambiado evento = (EstadoCambiado) eventos.getFirst();
         assertThat(evento.candidatoId()).isEqualTo("c-001");
         assertThat(evento.anterior()).isEqualTo(codigo("APLICADO"));
         assertThat(evento.nuevo()).isEqualTo(codigo("ENTREVISTA"));
@@ -43,52 +43,72 @@ class CandidatoTest {
     }
 
     @Test
-    void unaTransicionInvalidaNoCambiaElEstadoNiRegistraEventos() {
+    void unaTransicionInvalidaNoCambiaElEstadoNiDevuelveEventos() {
         Candidato candidato = candidatoEn("ENTREVISTA");
 
         assertThatThrownBy(() -> transicionar(candidato, "CONTRATADO"))
                 .isInstanceOf(TransicionEstadoInvalida.class);
 
         assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("ENTREVISTA"));
-        assertThat(candidato.extraerEventos()).isEmpty();
     }
 
     @Test
     void entrarAOfertaEmiteOfertaEmitida() {
         Candidato candidato = candidatoEn("ENTREVISTA");
 
-        transicionar(candidato, "OFERTA");
+        List<EventoDominio> eventos = transicionar(candidato, "OFERTA");
 
-        assertThat(candidato.extraerEventos())
-                .extracting(EventoDominio::getClass)
-                .containsExactly(EstadoCambiado.class, OfertaEmitida.class);
+        assertThat(eventos).hasExactlyElementsOfTypes(EstadoCambiado.class, OfertaEmitida.class);
     }
 
     @Test
     void entrarAContratadoEmiteCandidatoContratado() {
         Candidato candidato = candidatoEn("OFERTA");
 
-        transicionar(candidato, "CONTRATADO");
+        List<EventoDominio> eventos = transicionar(candidato, "CONTRATADO");
 
-        assertThat(candidato.extraerEventos())
-                .extracting(EventoDominio::getClass)
-                .containsExactly(EstadoCambiado.class, CandidatoContratado.class);
+        assertThat(eventos).hasExactlyElementsOfTypes(EstadoCambiado.class, CandidatoContratado.class);
     }
 
     @Test
-    void restaurarVuelveAlEstadoDeLaFotoYRegistraQuienDeshizo() {
+    void restaurarVuelveAlEstadoDeLaFotoYDevuelveQuienDeshizo() {
         Candidato candidato = candidatoEn("ENTREVISTA");
         MementoCandidato foto = candidato.crearMemento();
         transicionar(candidato, "RECHAZADO");
-        candidato.extraerEventos();
 
-        candidato.restaurar(foto, "supervisora-laura");
+        List<EventoDominio> eventos = candidato.restaurar(foto, "supervisora-laura");
 
         assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("ENTREVISTA"));
-        CambioRevertido evento = (CambioRevertido) candidato.extraerEventos().getFirst();
+        CambioRevertido evento = (CambioRevertido) eventos.getFirst();
         assertThat(evento.estadoDeshecho()).isEqualTo(codigo("RECHAZADO"));
         assertThat(evento.estadoRestaurado()).isEqualTo(codigo("ENTREVISTA"));
         assertThat(evento.autor()).isEqualTo("supervisora-laura");
+    }
+
+    @Test
+    void laFotoGuardaElCandidatoCompleto() {
+        Candidato candidato = candidatoEn("APLICADO");
+
+        MementoCandidato foto = candidato.crearMemento();
+        transicionar(candidato, "ENTREVISTA");
+
+        assertThat(foto.obtenerCandidatoId()).isEqualTo("c-001");
+        assertThat(foto.obtenerNombre()).isEqualTo("Ana");
+        assertThat(foto.obtenerEstado().codigo()).isEqualTo(codigo("APLICADO"));
+        assertThat(foto.obtenerCreadoEn()).isNotNull();
+    }
+
+    @Test
+    void restaurarAplicaElCandidatoCompletoGuardadoEnLaFoto() {
+        Candidato candidato = candidatoEn("ENTREVISTA");
+        MementoCandidato foto = new MementoCandidato("c-001", "Ana Maria", catalogo.obtener(codigo("APLICADO")));
+        transicionar(candidato, "RECHAZADO");
+
+        candidato.restaurar(foto, "supervisora-laura");
+
+        assertThat(candidato.obtenerId()).isEqualTo("c-001");
+        assertThat(candidato.obtenerNombre()).isEqualTo("Ana Maria");
+        assertThat(candidato.obtenerEstado().codigo()).isEqualTo(codigo("APLICADO"));
     }
 
     @Test
@@ -101,14 +121,13 @@ class CandidatoTest {
     }
 
     @Test
-    void extraerEventosEntregaLosPendientesUnaSolaVez() {
+    void cadaTransicionDevuelveSusPropiosEventosSinAcumularlos() {
         Candidato candidato = candidatoEn("APLICADO");
-        transicionar(candidato, "ENTREVISTA");
 
-        List<EventoDominio> primera = candidato.extraerEventos();
-        List<EventoDominio> segunda = candidato.extraerEventos();
+        List<EventoDominio> primera = transicionar(candidato, "ENTREVISTA");
+        List<EventoDominio> segunda = transicionar(candidato, "OFERTA");
 
-        assertThat(primera).hasSize(1);
-        assertThat(segunda).isEmpty();
+        assertThat(primera).hasExactlyElementsOfTypes(EstadoCambiado.class);
+        assertThat(segunda).hasExactlyElementsOfTypes(EstadoCambiado.class, OfertaEmitida.class);
     }
 }
