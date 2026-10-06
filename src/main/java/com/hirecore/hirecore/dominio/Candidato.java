@@ -57,7 +57,6 @@ public class Candidato {
             );
         }
         EstadoCandidato deshecho = estado;
-        // La foto guarda el candidato completo anterior al cambio: se aplica entero.
         nombre = memento.obtenerNombre();
         estado = memento.obtenerEstado();
         return List.of(new CambioRevertido(id, deshecho.codigo(), estado.codigo(), autor));
